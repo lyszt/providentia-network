@@ -3,3 +3,4 @@ peewee
 rich
 python-dotenv
 discord
+requests
