@@ -2,3 +2,4 @@ Flask
 peewee
 rich
 python-dotenv
+discord
