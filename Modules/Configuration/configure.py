@@ -1,9 +1,11 @@
+# System
 import datetime
 import logging
 import os
 import shutil
 import pathlib
 
+# Essential
 import flask
 import peewee
 import sqlite3
@@ -18,21 +20,25 @@ from werkzeug.exceptions import UnsupportedMediaType
 class Outils:
     def __init__(self):
         pass
-    def logResponse(self, request):
-        logging.info(f"Method: {request.method}\n")
-        logging.info(f"Path: {request.path}\n")
-        logging.info(f"Remote Address: {request.remote_addr}\n")
-        logging.info(f"Headers: {dict(request.headers)}\n")
-        logging.info(f"Query Parameters: {request.args}\n")
+    def logResponse(self, request) -> str:
+        response = f"""
+              ## Request received.
+              =============================
+              - **Method:** {request.method}
+              - **Path:** {request.path}
+              - **Remote Address:** {request.remote_addr}
+              - **Headers:** {dict(request.headers)}  # Convert headers to dictionary for better readability
+              - **Query String:** {request.query_string.decode()}  # Decode byte string to normal string
+              """
         try:
-            logging.info(f"Form Data: {request.form}\n")
+            response += f"**Form Data**: {request.form}\n"
         except UnsupportedMediaType:
             pass
         try:
             logging.info(f"JSON Data: {request.get_json()}\n")
         except UnsupportedMediaType:
             pass
-
+        return response
 
 class Setuṕ:
     def __init__(self):
