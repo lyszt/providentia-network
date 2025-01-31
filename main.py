@@ -1,20 +1,25 @@
 import json
 
+import flask
 from flask import request, Flask, jsonify
 import logging
 
+# IMPORTED MODULES
+from Modules.Configuration.configure import *
 app = Flask(__name__)
 with open('index.html') as f:
     index_html = f.read()
+
+@app.after_request
+def after_request(response: flask.Response):
+    logging.info(f"Request received: {response}")
+    Outils().logResponse(request)
+    return response
 @app.route('/')
 def index():
     return index_html
 
-@app.route('/', method=['GET'])
-def response():
-    resp = jsonify({'success': True})
-    resp.status_code = 200
-    return resp
 if __name__ == '__main__':
-    app.run()
+    Setuṕ()
+    app.run(debug=True)
 
