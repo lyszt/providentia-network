@@ -7,21 +7,27 @@ import multiprocessing
 
 import flask
 import discord
+import google.generativeai as genai
 from flask import request, Flask, jsonify
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
 
 from Modules.Configuration.configure import *
-
+from Modules.Executioner.discord import *
 load_dotenv(dotenv_path=".env")
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
+genai.configure(api_key=GEMINI_TOKEN)
+
 if DISCORD_TOKEN is None:
     print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
 
 app = Flask(__name__)
 intents = discord.Intents.default()
 intents.message_content = True
+
+global discord_client
 discord_client = discord.Client(intents=intents)
 
 console = Console(color_system="windows")
@@ -59,8 +65,20 @@ def run_discord():
     discord_logger.setLevel(logging.INFO)
     discord_logger.addHandler(DiscordLogger())
 
+    @discord_client.event
+    async def on_message(message):
+        text_message = message.content.lower()
+        logging.info("Detected Discord message.")
+        if message.author == discord_client.user.bot or message.author == discord_client.user:
+            pass
+        elif str(message.author.id) == '1047943536374464583':
+            logging.info("Permissions passed")
+            if "providentia, eu te ordeno" in text_message:
+                await DiscordAgent().execute_order(message, message.content)
+
     logging.info("Starting Discord bot...")
     discord_client.run(DISCORD_TOKEN)
+
 
 def run_flask():
     logging.info("Starting Flask app...")
@@ -76,6 +94,10 @@ def initialize():
         Setup()
     except Exception as err:
         logging.error(err)
+
+
+
+
 
 @atexit.register
 def shutdown():
