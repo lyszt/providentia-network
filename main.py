@@ -73,7 +73,7 @@ def run_discord():
             pass
         elif str(message.author.id) == '1047943536374464583':
             logging.info("Permissions passed")
-            if "providentia, eu te ordeno" in text_message:
+            if "providentia," in text_message:
                 await DiscordAgent().execute_order(message, message.content)
 
     logging.info("Starting Discord bot...")
