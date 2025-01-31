@@ -27,8 +27,8 @@ class Outils:
               - **Method:** {request.method}
               - **Path:** {request.path}
               - **Remote Address:** {request.remote_addr}
-              - **Headers:** {dict(request.headers)}  # Convert headers to dictionary for better readability
-              - **Query String:** {request.query_string.decode()}  # Decode byte string to normal string
+              - **Headers:** {dict(request.headers)}  
+              - **Query String:** {request.query_string.decode()}
               """
         try:
             response += f"**Form Data**: {request.form}\n"
