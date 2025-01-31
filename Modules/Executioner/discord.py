@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import requests
+import feedparser
 from bs4 import BeautifulSoup
 from pathlib import Path
 
