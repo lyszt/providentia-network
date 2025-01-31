@@ -12,7 +12,7 @@ def index():
 
 @app.route('/', method=['GET'])
 def response():
-    resp = jsonify({'sucess': True})
+    resp = jsonify({'success': True})
     resp.status_code = 200
     return resp
 if __name__ == '__main__':
