@@ -4,6 +4,8 @@ import logging
 import os
 import re
 import sys
+import requests
+from bs4 import BeautifulSoup
 from pathlib import Path
 
 import google.generativeai as genai
