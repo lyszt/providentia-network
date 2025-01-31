@@ -40,7 +40,7 @@ class Outils:
             pass
         return response
 
-class Setuṕ:
+class Setup:
     def __init__(self):
         self.makeLogs()
         self.makeTemp()

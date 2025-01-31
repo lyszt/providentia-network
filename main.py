@@ -6,9 +6,13 @@ import flask
 import discord
 from flask import request, Flask, jsonify
 # Essentials
+import threading, multiprocessing
+import subprocess
 import os
 from dotenv import load_dotenv
 import logging
+
+from jinja2.ext import debug
 # Tools
 from rich.console import Console
 from rich.markdown import Markdown
@@ -39,11 +43,18 @@ def after_request(response: flask.Response):
 def index():
     return index_html
 
+
+
 if __name__ == '__main__':
+    setup = multiprocessing.Process(target=Setup)
+    setup.start()
+    setup.join()
+
     console.print(Markdown(f"""
 # PROVIDENTIA NETWORK
-## **PROVIDENCE**is online. Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}"""))
-    Setuṕ()
-    discord_client.run(DISCORD_TOKEN)
-    app.run(debug=True)
+## **PROVIDENCE** is online. Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}"""))
+    mainApp = multiprocessing.Process(target=app.run(debug=True))
+    discordApp = multiprocessing.Process(target=discord_client.run(DISCORD_TOKEN))
+    mainApp.start()
+    discordApp.start()
 
