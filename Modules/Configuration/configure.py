@@ -22,14 +22,14 @@ class Outils:
         pass
     def logResponse(self, request) -> str:
         response = f"""
-              ## Request received.
-              =============================
-              - **Method:** {request.method}
-              - **Path:** {request.path}
-              - **Remote Address:** {request.remote_addr}
-              - **Headers:** {dict(request.headers)}  
-              - **Query String:** {request.query_string.decode()}
-              """
+## Request received.
+=============================
+- **Method:** {request.method}
+- **Path:** {request.path}
+- **Remote Address:** {request.remote_addr}
+- **Headers:** {dict(request.headers)}  
+- **Query String:** {request.query_string.decode()}
+"""
         try:
             response += f"**Form Data**: {request.form}\n"
         except UnsupportedMediaType:

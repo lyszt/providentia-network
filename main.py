@@ -1,3 +1,4 @@
+import datetime
 import json
 
 # Essential
@@ -10,7 +11,7 @@ from rich.markdown import Markdown
 # IMPORTED MODULES
 from Modules.Configuration.configure import *
 app = Flask(__name__)
-console = Console()
+console = Console(color_system="windows")
 
 with open('index.html') as f:
     index_html = f.read()
@@ -25,6 +26,9 @@ def index():
     return index_html
 
 if __name__ == '__main__':
+    console.print(Markdown(f"""
+# PROVIDENTIA NETWORK
+## **PROVIDENTIA** online. Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}"""))
     Setuṕ()
     app.run(debug=True)
 
