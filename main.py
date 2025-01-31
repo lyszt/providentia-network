@@ -1,9 +1,12 @@
 import datetime
 import json
 
-# Essential
+# App
 import flask
 from flask import request, Flask, jsonify
+# Essentials
+import os
+import dotenv
 import logging
 # Tools
 from rich.console import Console
@@ -28,7 +31,7 @@ def index():
 if __name__ == '__main__':
     console.print(Markdown(f"""
 # PROVIDENTIA NETWORK
-## **PROVIDENTIA** online. Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}"""))
+## **PROVIDENCE**is online. Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}"""))
     Setuṕ()
     app.run(debug=True)
 
