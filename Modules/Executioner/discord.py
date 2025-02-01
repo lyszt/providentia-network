@@ -23,7 +23,7 @@ class DiscordAgent:
         def setCommand(prompt: str) -> str:
             try:
                 logging.info(f"Generating command for prompt: {prompt}")
-                model = genai.GenerativeModel("gemini-2.0-flash-exp",
+                model = genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21",
                                               generation_config={"temperature": 0.2})
 
                 system_prompt = f"""GENERATE PYTHON CODE FOR DISCORD BOT, REACTING TO USER INSIDE
@@ -40,7 +40,7 @@ class DiscordAgent:
         7. Import all used libraries, if any. Do not import
         ======================================
         EXAMPLE OUTPUT:
-        async def execute(interaction):
+        async def execute(message, client):
             await interaction.response.send_message("Greetings.")
         
 
