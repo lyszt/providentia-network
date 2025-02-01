@@ -6,11 +6,17 @@ import re
 import sys
 import requests
 import feedparser
+import pyautogui
+import keyboard
+
 from bs4 import BeautifulSoup
 from pathlib import Path
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google import genai
+from google.genai import types
 from rich.console import Console
+from main import gemini_client
+from .audio import Speak
+GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
 
 
 import discord
@@ -18,17 +24,16 @@ import discord
 class SecurityError(Exception):
     pass
 
-class DiscordAgent():
-    def __init__(self, console_obj: Console):
+class DiscordAgent:
+    def __init__(self, gemini_client: genai.Client, console_obj: Console):
         self.console = console_obj
+        self.gemini_client = gemini_client
         pass
 
     async def execute_order(self, interaction, request: str, client):
-        def setCommand(prompt: str) -> str:
+        def setCommand(prompt: str) -> dict:
             try:
                 self.console.log(f"Generating command for prompt: {prompt}")
-                model = genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21",
-                                              generation_config={"temperature": 0.2})
 
                 system_prompt = f"""GENERATE PYTHON CODE FOR DISCORD BOT, REACTING TO USER INSIDE
                 FUNCTION:
@@ -49,12 +54,11 @@ class DiscordAgent():
         
 
         """
-                response = model.generate_content(system_prompt,
-                                                  safety_settings={
-                                                      HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                                                      HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                                                  })
-
+                response = gemini_client.models.generate_content(
+                    model="gemini-2.0-flash-thinking-exp-01-21",
+                    config={'thinking_config': {'include_thoughts': True}},
+                    contents=system_prompt,
+                )
 
                 # Clean the generated code
                 clean_code = re.sub(
@@ -66,12 +70,21 @@ class DiscordAgent():
                 # Ensure it starts with the correct function definition
                 if not clean_code.startswith("async def execute(interaction):"):
                     clean_code = f"async def execute(interaction):\n    {clean_code}"
+                process = {
+                    'command_code': clean_code,
+                    'thoughts': [part for part in response.candidates[0].content.parts if part.thought]
+                }
 
-                return clean_code
+                return process
             except Exception as e:
                 self.console.log(f"[red]Command generation error: {str(e)}[\\red]")
-                return '''async def execute(interaction):
+                code = '''async def execute(interaction):
             await interaction.response.send_message("Systems critical - engineer required.")'''
+                process = {
+                    'command_code': code,
+                    'thoughts': []
+                }
+                return process
 
         def buildCommand(command_code: str):
             try:
@@ -94,11 +107,29 @@ class DiscordAgent():
                 return command_module
 
             except Exception as e:
-                console.error(f"C[red]Command build failed: {e}[\\red]")
+                self.console.log(f"C[red]Command build failed: {e}[\\red]")
                 return None
 
-        command_code = setCommand(request)
-        module = buildCommand(command_code)
+        result = setCommand(request)
+        module = buildCommand(result['command_code'])
+        if len(result['thoughts']) > 0:
+            for thought in result['thoughts']:
+                self.console.log(f"[green]{thought}[\\green]")
+                Speak().text_to_speech(thought)
+                Speak().play_audio("temp/speech.mp3")
+        else:
+            thought = gemini_client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=f"You are a voice assistant."
+                         f"In first person, summarize the actions you performed in {result['command_code']}."
+                         f"Be respectful, serious, and call me sir.",
+            )
+            self.console.log(f"[green]{thought.text}[\\green]")
+            Speak().text_to_speech(thought.text)
+            Speak().play_audio("temp/speech.mp3")
+
+
+
         if module and hasattr(module, 'execute'):
             try:
                 await module.execute(interaction, client)

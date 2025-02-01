@@ -4,23 +4,28 @@ import os
 import logging
 import atexit
 import multiprocessing
-
 import flask
 import discord
-import google.generativeai as genai
+import openai
+from google import genai
+from google.genai import types
 from flask import request, Flask, jsonify
+
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
-from brasilapy.constants import APIVersion, FipeTipoVeiculo, IBGEProvider, TaxaJurosType
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
+
 load_dotenv(dotenv_path=".env")
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
-genai.configure(api_key=GEMINI_TOKEN)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 if DISCORD_TOKEN is None:
     print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
+
+gemini_client = genai.Client(api_key=GEMINI_TOKEN, http_options={'api_version':'v1alpha'})
+
 
 app = Flask(__name__)
 intents = discord.Intents.default()
@@ -71,7 +76,7 @@ def run_discord():
             pass
         elif str(message.author.id) == '1047943536374464583':
             if "providentia," in text_message:
-                await DiscordAgent(console).execute_order(message, message.content, discord_client)
+                await DiscordAgent(gemini_client, console).execute_order(message, message.content, discord_client)
 
     console.log("Starting Discord bot...")
     discord_client.run(DISCORD_TOKEN)
