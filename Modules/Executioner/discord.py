@@ -37,7 +37,7 @@ class DiscordAgent:
         4. Strings should be in the language of the prompt
         5. Strict discord.py syntax
         6. You are strictly prohibited to make if statements
-        7. Import all used libraries, if any. Do not import
+        7. Import all used libraries, if any. 
         ======================================
         EXAMPLE OUTPUT:
         async def execute(message, client):
