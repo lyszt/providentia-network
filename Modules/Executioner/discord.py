@@ -6,12 +6,12 @@ import re
 import sys
 import requests
 import feedparser
+from brasilapy.constants import TaxaJurosType
 from bs4 import BeautifulSoup
 from pathlib import Path
-
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
-
+from brasilapy import BrasilAPI
 import discord
 
 class SecurityError(Exception):
@@ -21,7 +21,7 @@ class DiscordAgent:
     def __init__(self):
         pass
 
-    async def execute_order(self, interaction, request: str):
+    async def execute_order(self, interaction, request: str, client):
         def setCommand(prompt: str) -> str:
             try:
                 logging.info(f"Generating command for prompt: {prompt}")
@@ -33,21 +33,28 @@ class DiscordAgent:
         Input: {prompt}
         RULES:
         0. Don't query or do anything with message.content. NEVER repeat what the user said
-        1. ONLY generate code inside the function: async def execute(message):
+        1. ONLY generate code inside the function: async def execute(message, client):
         2. NO markdown, comments, or text formatting
         3. 4-space indentation EXACTLY. Put FOUR SPACES everytime you indent.
         4. Strings should be in the language of the prompt
         5. Strict discord.py syntax
         6. You are strictly prohibited to make if statements
-        7. Import all used libraries, if any
+        7. Import all used libraries, if any. Do not import
+        OBS: You can use brasilapy to find information about Brazil.
+        Example usage:
+        from brasilapy.constants import APIVersion, FipeTipoVeiculo, IBGEProvider, TaxaJurosType
+        from brasilapy import BrasilAPI
+        client = BrasilAPI()
+        feriados = client.get_feriados();
+        # brasilAPI is not asynchronous. BrasilAPI responds with class objects.
+        Access using feriados.name, for example
+        ======================================
         EXAMPLE OUTPUT:
         async def execute(interaction):
             await interaction.response.send_message("Greetings.")
         
 
         """
-
-
                 response = model.generate_content(system_prompt,
                                                   safety_settings={
                                                       HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
@@ -101,4 +108,7 @@ class DiscordAgent:
         command_code = setCommand(request)
         module = buildCommand(command_code)
         if module and hasattr(module, 'execute'):
-            await module.execute(interaction)
+            try:
+                await module.execute(interaction, client)
+            except Exception as err:
+                await interaction.channel.send(f"Detected error: {err}")

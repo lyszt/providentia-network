@@ -12,7 +12,7 @@ from flask import request, Flask, jsonify
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
-
+from brasilapy.constants import APIVersion, FipeTipoVeiculo, IBGEProvider, TaxaJurosType
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
 load_dotenv(dotenv_path=".env")
@@ -68,13 +68,11 @@ def run_discord():
     @discord_client.event
     async def on_message(message):
         text_message = message.content.lower()
-        logging.info("Detected Discord message.")
         if message.author == discord_client.user.bot or message.author == discord_client.user:
             pass
         elif str(message.author.id) == '1047943536374464583':
-            logging.info("Permissions passed")
             if "providentia," in text_message:
-                await DiscordAgent().execute_order(message, message.content)
+                await DiscordAgent().execute_order(message, message.content, discord_client)
 
     logging.info("Starting Discord bot...")
     discord_client.run(DISCORD_TOKEN)
