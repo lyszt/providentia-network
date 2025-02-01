@@ -122,7 +122,8 @@ class DiscordAgent:
             thought = gemini_client.models.generate_content(
                 model="gemini-1.5-flash",
                 contents=f"You are a voice assistant."
-                         f"In first person, summarize the actions you performed in {result['command_code']}."
+                         f"In first person, summarize the actions you will perform in {result['command_code']}."
+                         f"Speak in future tense."
                          f"Be respectful, serious, and call me sir.",
             )
             self.console.log(f"[green]{thought.text}[\\green]")
