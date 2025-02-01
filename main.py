@@ -19,7 +19,6 @@ load_dotenv(dotenv_path=".env")
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
 genai.configure(api_key=GEMINI_TOKEN)
-
 if DISCORD_TOKEN is None:
     print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
 
@@ -48,7 +47,7 @@ with open('index.html') as f:
 
 @app.after_request
 def after_request(response: flask.Response):
-    logging.info(f"Request received: {response}")
+    console.log(f"Request received: {response}")
     console.log(Markdown(Outils().logResponse(request)))
 
 
@@ -72,14 +71,14 @@ def run_discord():
             pass
         elif str(message.author.id) == '1047943536374464583':
             if "providentia," in text_message:
-                await DiscordAgent().execute_order(message, message.content, discord_client)
+                await DiscordAgent(console).execute_order(message, message.content, discord_client)
 
-    logging.info("Starting Discord bot...")
+    console.log("Starting Discord bot...")
     discord_client.run(DISCORD_TOKEN)
 
 
 def run_flask():
-    logging.info("Starting Flask app...")
+    console.log("Starting Flask app...")
     app.run(host="0.0.0.0", port=5000, use_reloader=False)
 
 def initialize():
@@ -99,7 +98,7 @@ def initialize():
 
 @atexit.register
 def shutdown():
-    logging.info("Shutting down processes...")
+    console.log("Shutting down process..")
     console.log("[red]Shutting down all services...[/red]")
 
 if __name__ == '__main__':

@@ -10,19 +10,23 @@ from bs4 import BeautifulSoup
 from pathlib import Path
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from rich.console import Console
+
+
 import discord
 
 class SecurityError(Exception):
     pass
 
-class DiscordAgent:
-    def __init__(self):
+class DiscordAgent():
+    def __init__(self, console_obj: Console):
+        self.console = console_obj
         pass
 
     async def execute_order(self, interaction, request: str, client):
         def setCommand(prompt: str) -> str:
             try:
-                logging.info(f"Generating command for prompt: {prompt}")
+                self.console.log(f"Generating command for prompt: {prompt}")
                 model = genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21",
                                               generation_config={"temperature": 0.2})
 
@@ -51,7 +55,6 @@ class DiscordAgent:
                                                       HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
                                                   })
 
-                logging.info(f"Generated command: {response.text} - Input: {prompt}")
 
                 # Clean the generated code
                 clean_code = re.sub(
@@ -66,7 +69,7 @@ class DiscordAgent:
 
                 return clean_code
             except Exception as e:
-                logging.error(f"Command generation error: {str(e)}")
+                self.console.log(f"[red]Command generation error: {str(e)}[\\red]")
                 return '''async def execute(interaction):
             await interaction.response.send_message("Systems critical - engineer required.")'''
 
@@ -91,10 +94,9 @@ class DiscordAgent:
                 return command_module
 
             except Exception as e:
-                logging.error(f"Command build failed: {e}")
+                console.error(f"C[red]Command build failed: {e}[\\red]")
                 return None
 
-        logging.info("Creating dynamic command...")
         command_code = setCommand(request)
         module = buildCommand(command_code)
         if module and hasattr(module, 'execute'):
