@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import requests
+import pyperclip
 import feedparser
 import pyautogui
 import keyboard
