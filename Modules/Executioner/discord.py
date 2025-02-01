@@ -1,15 +1,19 @@
+import asyncio
 import hashlib
 import importlib
 import logging
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
+
 import requests
 import pyperclip
 import feedparser
 import pyautogui
 import keyboard
 
+import threading
 from bs4 import BeautifulSoup
 from pathlib import Path
 from google import genai
@@ -111,29 +115,57 @@ class DiscordAgent:
                 self.console.log(f"C[red]Command build failed: {e}[\\red]")
                 return None
 
-        result = setCommand(request)
-        module = buildCommand(result['command_code'])
-        if len(result['thoughts']) > 0:
-            for thought in result['thoughts']:
-                self.console.log(f"[green]{thought}[\\green]")
-                Speak().text_to_speech(thought)
-                Speak().play_audio("temp/speech.mp3")
-        else:
-            thought = gemini_client.models.generate_content(
-                model="gemini-1.5-flash",
-                contents=f"You are a voice assistant."
-                         f"In first person, summarize the actions you will perform in {result['command_code']}."
-                         f"Speak in future tense."
-                         f"Be respectful, serious, and call me sir.",
-            )
-            self.console.log(f"[green]{thought.text}[\\green]")
-            Speak().text_to_speech(thought.text)
+        async def execute_module(interaction, client, module):
+            if module and hasattr(module, 'execute'):
+                try:
+                    await module.execute(interaction, client)
+                except Exception as err:
+                    await interaction.channel.send(f"Detected error: {err}")
+
+        # Unified audio generation function
+        def build_audio(text):
+            Speak().text_to_speech(text)
             Speak().play_audio("temp/speech.mp3")
 
+        # Main command handler
+        result = setCommand(request)
+        module = buildCommand(result['command_code'])
+
+        if result['thoughts']:
+            for thought in result['thoughts']:
+                self.console.log(f"[green]{thought}[/green]")  # Fixed closing tag
+                # Process all thoughts in parallel
+                with ThreadPoolExecutor() as pool:
+                    await asyncio.get_event_loop().run_in_executor(
+                        pool,
+                        build_audio,
+                        thought
+                    )
+        else:
+            # Offload blocking Gemini call to thread
+            with ThreadPoolExecutor() as pool:
+                thought = await asyncio.get_event_loop().run_in_executor(
+                    pool,
+                    lambda: gemini_client.models.generate_content(
+                        model="gemini-1.5-flash",
+                        contents=f"You are a voice assistant."
+                                 f"In first person, summarize the actions you have performed in {result['command_code']}."
+                                 f"Speak in past tense."
+                                 f"Be respectful, serious, and call me sir.",
+                    )
+                )
+
+            self.console.log(f"[green]{thought.text}[/green]")
+
+            # Run module execution and audio in parallel
+            with ThreadPoolExecutor() as pool:
+                await asyncio.gather(
+                    execute_module(interaction, client, module),
+                    asyncio.get_event_loop().run_in_executor(
+                        pool,
+                        build_audio,
+                        thought.text
+                    )
+                )
 
 
-        if module and hasattr(module, 'execute'):
-            try:
-                await module.execute(interaction, client)
-            except Exception as err:
-                await interaction.channel.send(f"Detected error: {err}")
