@@ -12,7 +12,6 @@ import pyperclip
 import feedparser
 import pyautogui
 import keyboard
-
 import threading
 from bs4 import BeautifulSoup
 from pathlib import Path
