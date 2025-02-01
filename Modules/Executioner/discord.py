@@ -6,12 +6,10 @@ import re
 import sys
 import requests
 import feedparser
-from brasilapy.constants import TaxaJurosType
 from bs4 import BeautifulSoup
 from pathlib import Path
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
-from brasilapy import BrasilAPI
 import discord
 
 class SecurityError(Exception):
@@ -40,14 +38,6 @@ class DiscordAgent:
         5. Strict discord.py syntax
         6. You are strictly prohibited to make if statements
         7. Import all used libraries, if any. Do not import
-        OBS: You can use brasilapy to find information about Brazil.
-        Example usage:
-        from brasilapy.constants import APIVersion, FipeTipoVeiculo, IBGEProvider, TaxaJurosType
-        from brasilapy import BrasilAPI
-        client = BrasilAPI()
-        feriados = client.get_feriados();
-        # brasilAPI is not asynchronous. BrasilAPI responds with class objects.
-        Access using feriados.name, for example
         ======================================
         EXAMPLE OUTPUT:
         async def execute(interaction):
