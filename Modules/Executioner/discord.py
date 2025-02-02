@@ -21,10 +21,7 @@ from rich.console import Console
 from main import gemini_client
 from .audio import Speak
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
-
-
 import discord
-
 class SecurityError(Exception):
     pass
 
@@ -44,16 +41,17 @@ class DiscordAgent:
         Input: {prompt}
         RULES:
         0. Don't query or do anything with message.content. NEVER repeat what the user said
-        1. ONLY generate code inside the function: async def execute(message, client):
+        1. ONLY generate code inside the function: async def execute(message, client, console):
         2. NO markdown, comments, or text formatting
         3. 4-space indentation EXACTLY. Put FOUR SPACES everytime you indent.
         4. Strings should be in the language of the prompt
         5. Strict discord.py syntax
         6. You are strictly prohibited to make if statements
         7. Import all used libraries, if any. 
+        8. If doing ssh connections using asyncssh, use known_hosts=None
         ======================================
         EXAMPLE OUTPUT:
-        async def execute(message, client):
+        async def execute(message, client, console):
             await interaction.response.send_message("Greetings.")
         
 
@@ -70,10 +68,7 @@ class DiscordAgent:
                     '',
                     response.text
                 ).strip()
-
-                # Ensure it starts with the correct function definition
-                if not clean_code.startswith("async def execute(interaction):"):
-                    clean_code = f"async def execute(interaction):\n    {clean_code}"
+                clean_code = clean_code.replace("python","", 1)
                 process = {
                     'command_code': clean_code,
                     'thoughts': [part for part in response.candidates[0].content.parts if part.thought]
@@ -82,7 +77,7 @@ class DiscordAgent:
                 return process
             except Exception as e:
                 self.console.log(f"[red]Command generation error: {str(e)}[\\red]")
-                code = '''async def execute(interaction):
+                code = '''async def execute(message, client, console)
             await interaction.response.send_message("Systems critical - engineer required.")'''
                 process = {
                     'command_code': code,
@@ -114,10 +109,10 @@ class DiscordAgent:
                 self.console.log(f"C[red]Command build failed: {e}[\\red]")
                 return None
 
-        async def execute_module(interaction, client, module):
+        async def execute_module(interaction, client, module, logger):
             if module and hasattr(module, 'execute'):
                 try:
-                    await module.execute(interaction, client)
+                    await module.execute(interaction, client, logger)
                 except Exception as err:
                     await interaction.channel.send(f"Detected error: {err}")
 
@@ -159,7 +154,7 @@ class DiscordAgent:
             # Run module execution and audio in parallel
             with ThreadPoolExecutor() as pool:
                 await asyncio.gather(
-                    execute_module(interaction, client, module),
+                    execute_module(interaction, client, module, self.console),
                     asyncio.get_event_loop().run_in_executor(
                         pool,
                         build_audio,
