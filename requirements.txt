@@ -13,4 +13,5 @@ pyautogui
 pynacl
 asyncssh
 keyboard
+bs4
 feedparser
