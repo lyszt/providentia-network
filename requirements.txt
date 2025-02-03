@@ -14,4 +14,5 @@ pynacl
 asyncssh
 keyboard
 bs4
+pygame
 feedparser
