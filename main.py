@@ -7,6 +7,7 @@ import multiprocessing
 import flask
 import discord
 import openai
+import asyncio
 from google import genai
 from google.genai import types
 from flask import request, Flask, jsonify
@@ -24,12 +25,14 @@ DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 if DISCORD_TOKEN is None:
     print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
 
-gemini_client = genai.Client(api_key=GEMINI_TOKEN, http_options={'api_version':'v1alpha'})
-
+gemini_client = genai.Client(api_key=GEMINI_TOKEN, http_options={'api_version': 'v1alpha'})
 
 app = Flask(__name__)
 intents = discord.Intents.default()
 intents.message_content = True
+intents.guilds = True
+intents.reactions = True
+intents.members = True
 
 global discord_client
 discord_client = discord.Client(intents=intents)
@@ -50,15 +53,37 @@ logging.getLogger('').addHandler(logger)
 with open('index.html') as f:
     index_html = f.read()
 
+
 @app.after_request
 def after_request(response: flask.Response):
     console.log(f"Request received: {response}")
     console.log(Markdown(Outils().logResponse(request)))
+    return response
 
 
 @app.route('/')
 def index():
     return index_html
+
+
+@app.route('/get_messages', methods=['GET'])
+def get_messages():
+    channel = request.args.get('channel')
+
+    async def getHistory(location: str):
+        location = discord_client.get_channel(location)
+        messages = await location.history(limit=10)
+        formatted_messages = []
+        for message in messages:
+            formatted_messages.append(
+                f"<span>[{str(message.timestamp).upper}] {message.author}: message.content: {message.content}</span>\n")
+
+    try:
+        messages = asyncio.run(getHistory(channel))
+        return jsonify({"messages": messages}, 200)
+    except Exception as e:
+        return jsonify({"error": f"{e}."}, 500)
+
 
 def run_discord():
     class DiscordLogger(logging.Handler):
@@ -86,6 +111,7 @@ def run_flask():
     console.log("Starting Flask app...")
     app.run(host="0.0.0.0", port=5000, use_reloader=False)
 
+
 def initialize():
     console.log(Markdown(f"""
 # PROVIDENTIA NETWORK
@@ -98,13 +124,11 @@ def initialize():
         logging.error(err)
 
 
-
-
-
 @atexit.register
 def shutdown():
     console.log("Shutting down process..")
     console.log("[red]Shutting down all services...[/red]")
+
 
 if __name__ == '__main__':
     setup = multiprocessing.Process(target=initialize)
