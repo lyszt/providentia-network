@@ -12,5 +12,5 @@ openai
 pyautogui
 pynacl
 asyncssh
-tkinter
+keyboard
 feedparser
