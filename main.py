@@ -66,45 +66,29 @@ def index():
     return index_html
 
 
+message_queue = asyncio.Queue()
+
 @app.route('/get_messages', methods=['GET'])
-def get_messages():
-    channel = request.args.get('channel')
+async def get_messages():
+    channel_id = int(request.args.get('channel'))
 
-    async def getHistory(location: str):
-        location = discord_client.get_channel(location)
-        messages = await location.history(limit=10)
-        formatted_messages = []
-        for message in messages:
-            formatted_messages.append(
-                f"<span>[{str(message.timestamp).upper}] {message.author}: message.content: {message.content}</span>\n")
-
-    try:
-        messages = asyncio.run(getHistory(channel))
-        return jsonify({"messages": messages}, 200)
-    except Exception as e:
-        return jsonify({"error": f"{e}."}, 500)
-
-
-def run_discord():
-    class DiscordLogger(logging.Handler):
-        def emit(self, record):
-            console.log(f"[cyan][DISCORD][/cyan] {record.getMessage()}")
-
-    discord_logger = logging.getLogger("discord")
-    discord_logger.setLevel(logging.INFO)
-    discord_logger.addHandler(DiscordLogger())
+    messages_future = asyncio.get_event_loop().create_future()
 
     @discord_client.event
-    async def on_message(message):
-        text_message = message.content.lower()
-        if message.author == discord_client.user.bot or message.author == discord_client.user:
-            pass
-        elif str(message.author.id) == '1047943536374464583':
-            if "providentia," in text_message:
-                await DiscordAgent(gemini_client, console).execute_order(message, message.content, discord_client)
+    async def on_ready():
+        channel = await discord_client.fetch_channel(channel_id)
+        messages = [msg.content async for msg in channel.history(limit=10)]
 
-    console.log("Starting Discord bot...")
-    discord_client.run(DISCORD_TOKEN)
+        messages_future.set_result(messages)  # Fulfill the future with messages
+        await discord_client.close()  # Stop the bot after fetching messages
+
+    if not discord_client.is_ready():
+        loop = asyncio.get_event_loop()
+        loop.create_task(discord_client.start(DISCORD_TOKEN))
+
+    messages = await messages_future
+
+    return jsonify({"messages": messages}), 200
 
 
 def run_flask():
@@ -133,19 +117,16 @@ def shutdown():
 if __name__ == '__main__':
     setup = multiprocessing.Process(target=initialize)
     mainApp = multiprocessing.Process(target=run_flask)
-    discordApp = multiprocessing.Process(target=run_discord)
-
-    processes = [setup, mainApp, discordApp]
+    processes = [setup, mainApp]
 
     try:
         setup.start()
         setup.join()
 
         mainApp.start()
-        discordApp.start()
+        # discordApp.start()
 
         mainApp.join()
-        discordApp.join()
     except Exception as err:
         logging.error(f"Error: {err}")
     finally:
