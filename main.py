@@ -76,7 +76,7 @@ def run_flask():
 def initialize():
     console.log(Markdown(f"""
 # PROVIDENTIA NETWORK
-## **PROVIDENCE** is online.
+## **PROVIDENCE** has awakened.
 ### Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}
 """))
     try:
