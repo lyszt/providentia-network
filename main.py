@@ -4,6 +4,8 @@ import os
 import logging
 import atexit
 import multiprocessing
+from multiprocessing import Process
+
 import flask
 import discord
 import openai
@@ -64,31 +66,6 @@ def after_request(response: flask.Response):
 @app.route('/')
 def index():
     return index_html
-
-
-message_queue = asyncio.Queue()
-
-@app.route('/get_messages', methods=['GET'])
-async def get_messages():
-    channel_id = int(request.args.get('channel'))
-
-    messages_future = asyncio.get_event_loop().create_future()
-
-    @discord_client.event
-    async def on_ready():
-        channel = await discord_client.fetch_channel(channel_id)
-        messages = [msg.content async for msg in channel.history(limit=10)]
-
-        messages_future.set_result(messages)  # Fulfill the future with messages
-        await discord_client.close()  # Stop the bot after fetching messages
-
-    if not discord_client.is_ready():
-        loop = asyncio.get_event_loop()
-        loop.create_task(discord_client.start(DISCORD_TOKEN))
-
-    messages = await messages_future
-
-    return jsonify({"messages": messages}), 200
 
 
 def run_flask():
