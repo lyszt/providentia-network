@@ -17,3 +17,6 @@ keyboard
 bs4
 pygame
 feedparser
+selenium
+easygui
+fake_useragent

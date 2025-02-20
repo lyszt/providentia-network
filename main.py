@@ -19,7 +19,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
-
+from Modules.Executioner.ponto import bater_ponto
 load_dotenv(dotenv_path=".env")
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -66,6 +66,17 @@ def after_request(response: flask.Response):
 @app.route('/')
 def index():
     return index_html
+
+@app.route('/baterponto')
+def bater():
+    login = os.getenv('UFFSLOGIN')
+    senha = os.getenv('UFFSSENHA')
+    try:
+        bater_ponto(login, senha, console)
+        return jsonify({'message': 'Success'}, 200)
+    except Exception as e:
+        return jsonify({'message': str(e)}, 500)
+
 
 
 def run_flask():
