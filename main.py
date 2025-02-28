@@ -10,9 +10,13 @@ import flask
 import discord
 import openai
 import asyncio
+import telebot
+
 from google import genai
 from google.genai import types
 from flask import request, Flask, jsonify
+
+
 
 from dotenv import load_dotenv
 from rich.console import Console
@@ -20,10 +24,13 @@ from rich.markdown import Markdown
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
 from Modules.Executioner.ponto import bater_ponto
+
 load_dotenv(dotenv_path=".env")
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+
 if DISCORD_TOKEN is None:
     print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
 
@@ -95,6 +102,14 @@ def initialize():
     except Exception as err:
         logging.error(err)
 
+def run_telegram():
+    bot = telebot.TeleBot(TELEGRAM_TOKEN)
+    console.log(f"Running bot. ID: {bot.bot_id}")
+    @bot.message_handler(commands=['start', 'hello'])
+    def greet(message):
+        bot.reply_to(message, "Greetings, I am Providentia Magnata.")
+
+    bot.infinity_polling()
 
 @atexit.register
 def shutdown():
@@ -105,13 +120,16 @@ def shutdown():
 if __name__ == '__main__':
     setup = multiprocessing.Process(target=initialize)
     mainApp = multiprocessing.Process(target=run_flask)
+    telegram = multiprocessing.Process(target=run_telegram)
     processes = [setup, mainApp]
 
     try:
         setup.start()
         setup.join()
 
+
         mainApp.start()
+        telegram.start()
         # discordApp.start()
 
         mainApp.join()

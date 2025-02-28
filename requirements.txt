@@ -20,3 +20,4 @@ feedparser
 selenium
 easygui
 fake_useragent
+pyTelegramBotAPI
