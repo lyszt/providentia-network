@@ -24,6 +24,7 @@ from rich.markdown import Markdown
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
 from Modules.Executioner.ponto import bater_ponto
+from Modules.Language.response import *
 
 load_dotenv(dotenv_path=".env")
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
@@ -104,10 +105,12 @@ def initialize():
 
 def run_telegram():
     bot = telebot.TeleBot(TELEGRAM_TOKEN)
-    console.log(f"Running bot. ID: {bot.bot_id}")
-    @bot.message_handler(commands=['start', 'hello'])
-    def greet(message):
-        bot.reply_to(message, "Greetings, I am Providentia Magnata.")
+    console.log(f"Running telegram bot. At ID: {bot.bot_id}")
+
+    @bot.message_handler(func=lambda msg: True)
+    def interpret(message):
+        response = asyncio.run(Language(gemini_client, console).generate_simple_response(message.text))
+        bot.reply_to(message, response)
 
     bot.infinity_polling()
 
