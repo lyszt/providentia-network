@@ -25,12 +25,16 @@ from flask import request, Flask, jsonify
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
+
+from Data.build import DatabaseConstructor
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
 from Modules.Executioner.ponto import bater_ponto
 from Modules.Executioner.weather import Weather
 from Modules.Language.response import *
 from Modules.Security.verify import Verification
+
+from Data import build
 
 load_dotenv(dotenv_path=".env")
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
@@ -106,6 +110,7 @@ def initialize():
 """))
     try:
         Setup()
+        DatabaseConstructor(consol=console).build()
     except Exception as err:
         logging.error(err)
 
@@ -153,6 +158,7 @@ def run_telegram():
 def shutdown():
     console.log("Shutting down process..")
     console.log("[red]Shutting down all services...[/red]")
+    DatabaseConstructor(consol=console).terminate_db()
 
 
 if __name__ == '__main__':
