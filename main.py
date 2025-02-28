@@ -23,6 +23,7 @@ from flask import request, Flask, jsonify
 
 
 from dotenv import load_dotenv
+from peewee import SqliteDatabase
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -117,7 +118,7 @@ def initialize():
 def run_telegram():
     bot = telebot.TeleBot(TELEGRAM_TOKEN)
     console.log(f"Running telegram bot. At ID: {bot.bot_id}")
-    commands = ["start","help","hello",'weather','clima']
+    commands = ["start","help","hello",'weather','clima','note','reminder']
 
     @bot.message_handler(commands=['start','hello','help'])
     def send_welcome(message):
@@ -126,6 +127,9 @@ def run_telegram():
         whitelisted.\n
         COMMANDS: {commands}""")
 
+    @bot.message_handler(commands=['note','reminder'])
+    def set_note(message):
+        bot.reply_to(message, "Command in development.")
     @bot.message_handler(commands=['weather','clima'])
     def send_weather(message):
         verification = Verification().verify_telegram(message.from_user.id)
