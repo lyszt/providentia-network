@@ -116,7 +116,6 @@ def run_telegram():
 
     @bot.message_handler(commands=['start','hello','help'])
     def send_welcome(message):
-        print(message.from_user.id)
         bot.reply_to(message, f"""Greetings. I am Providentia Magnata, in service of Lygon.\n
         I serve the emperor and the emperor alone. Commands from other people will not be heard, unless they're
         whitelisted.\n
