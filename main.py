@@ -28,7 +28,9 @@ from rich.markdown import Markdown
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
 from Modules.Executioner.ponto import bater_ponto
+from Modules.Executioner.weather import Weather
 from Modules.Language.response import *
+from Modules.Security.verify import Verification
 
 load_dotenv(dotenv_path=".env")
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
@@ -110,17 +112,41 @@ def initialize():
 def run_telegram():
     bot = telebot.TeleBot(TELEGRAM_TOKEN)
     console.log(f"Running telegram bot. At ID: {bot.bot_id}")
+    commands = ["start","help","hello",'weather','clima']
 
-    @bot.message_handler(commands=['start','hello'])
+    @bot.message_handler(commands=['start','hello','help'])
     def send_welcome(message):
-        bot.reply_to(message, "Greetings. I am Providentia Magnata, in service of Lygon.")
+        print(message.from_user.id)
+        bot.reply_to(message, f"""Greetings. I am Providentia Magnata, in service of Lygon.\n
+        I serve the emperor and the emperor alone. Commands from other people will not be heard, unless they're
+        whitelisted.\n
+        COMMANDS: {commands}""")
 
-
+    @bot.message_handler(commands=['weather','clima'])
+    def send_weather(message):
+        verification = Verification().verify_telegram(message.from_user.id)
+        if verification:
+            weather = asyncio.run(Weather().get())
+            response = asyncio.run(Language(gemini_client, console).generate_from_prompt(f"""
+            Based on what you know about the city of Chapecó, explain this weather,
+            and describe it. Say if it's normal or anomalous, the geographic information
+            of Chapecó climate. Say hello to the user, he's asking for the current climate.
+            
+            Write everything in paragraphs without using special formatting. Don't make anything
+            bold, just use plain simple text.
+            {weather}
+            """))
+            bot.reply_to(message, response)
+        else:
+            bot.reply_to(message, "Forgive me, but I can't respond to you.")
     @bot.message_handler(func=lambda msg: True)
     def interpret(message):
-        response = asyncio.run(Language(gemini_client, console).generate_simple_response(message.text))
-        bot.reply_to(message, response)
-
+        verification = Verification().verify_telegram(message.from_user.id)
+        if verification:
+            response = asyncio.run(Language(gemini_client, console).generate_simple_response(message.text))
+            bot.reply_to(message, response)
+        else:
+            bot.reply_to(message, "Forgive me, but I can't respond to you.")
 
     bot.infinity_polling()
 
