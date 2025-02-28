@@ -22,3 +22,16 @@ class Language:
             return response.text
         except Exception as err:
             return err
+
+    async def generate_economic_summary(self, data: dict):
+        try:
+            self.console.log(f"Generating economic summary.")
+
+            system_prompt = f"{prompts.prompts['economic_summary']} - CURRENT DATA: {data}"
+            response = self.gemini_client.models.generate_content(
+                model="gemini-2.0-flash-thinking-exp-01-21",
+                contents=system_prompt,
+            )
+            return response.text
+        except Exception as err:
+            return err

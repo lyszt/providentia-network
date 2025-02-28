@@ -1,5 +1,4 @@
-flask[async]
-aioflask
+flask[async]~=3.1.0
 peewee~=3.17.8
 rich~=13.9.4
 python-dotenv~=1.0.1
@@ -21,3 +20,5 @@ selenium
 easygui
 fake_useragent
 pyTelegramBotAPI
+python-bcb
+brasilapy

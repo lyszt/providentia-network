@@ -11,6 +11,10 @@ import discord
 import openai
 import asyncio
 import telebot
+import pandas
+from bcb import sgs
+
+from dateutil.relativedelta import relativedelta
 
 from google import genai
 from google.genai import types
@@ -107,10 +111,16 @@ def run_telegram():
     bot = telebot.TeleBot(TELEGRAM_TOKEN)
     console.log(f"Running telegram bot. At ID: {bot.bot_id}")
 
+    @bot.message_handler(commands=['start','hello'])
+    def send_welcome(message):
+        bot.reply_to(message, "Greetings. I am Providentia Magnata, in service of Lygon.")
+
+
     @bot.message_handler(func=lambda msg: True)
     def interpret(message):
         response = asyncio.run(Language(gemini_client, console).generate_simple_response(message.text))
         bot.reply_to(message, response)
+
 
     bot.infinity_polling()
 

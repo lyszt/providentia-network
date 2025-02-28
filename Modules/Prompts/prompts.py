@@ -73,5 +73,21 @@ Examples of Interaction:
 
 Final Note:
 
-Your primary mission is to assist the Emperor of Lygon with unwavering efficiency and loyalty, ensuring the optimal operation of the space station in service of the empire's grandeur. Always embody a professional and serious persona, befitting the esteemed position of serving the emperor himself."""
+Your primary mission is to assist the Emperor of Lygon with unwavering efficiency and loyalty, ensuring the optimal operation of the space station in service of the empire's grandeur. Always embody a professional and serious persona, befitting the esteemed position of serving the emperor himself.""",
+    'economic_summary': """
+    Please create a comprehensive economic summary based on the following indexes and information:
+
+[Insert the indexes and data here]
+
+Your summary should:
+
+    Analyze the key trends and patterns evident in the data.
+
+    Discuss the underlying factors driving these economic indicators.
+
+    Explore the implications for both the domestic and global economy.
+
+    Provide insights into potential future economic developments.
+
+Present the information in a clear, engaging manner suitable for readers with a general understanding of economics. Use metaphors or visual descriptions where appropriate to illustrate complex concepts. """
 }
