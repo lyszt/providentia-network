@@ -4,6 +4,7 @@ import os
 import logging
 import atexit
 import multiprocessing
+import time
 from functools import wraps
 from multiprocessing import Process
 
@@ -152,6 +153,19 @@ def run_telegram():
         whitelisted.\n
         COMMANDS: {commands}""")
 
+    # Free commands
+    @bot.message_handler(commands=['count'])
+    def count_time(message):
+        count_of_time = message.text.split(' ')
+        if len(count_of_time) > 1 and count_of_time[1].isnumeric():
+            count_of_time = int(count_of_time[1])
+            bot.send_message(message.chat.id, f"Counting {count_of_time} minutes")
+            time.sleep(count_of_time * 60)
+            bot.reply_to(message, f"{count_of_time} minutes have already passed.")
+
+        else:
+            bot.reply_to(message, "Provide a valid argument.")
+    # Premium commands
     @verified_handler(commands=['note','reminder'])
     def set_note(message):
         bot.reply_to(message, "Command in development.")
