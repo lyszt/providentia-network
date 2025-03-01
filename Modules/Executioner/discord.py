@@ -6,6 +6,7 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
+import datetime
 
 import requests
 import pyperclip
@@ -17,7 +18,9 @@ from bs4 import BeautifulSoup
 from pathlib import Path
 from google import genai
 from google.genai import types
-from rich.console import Console
+from rich import console
+
+
 from main import gemini_client
 from .audio import Speak
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
@@ -26,9 +29,15 @@ class SecurityError(Exception):
     pass
 
 class DiscordAgent:
-    def __init__(self, gemini_client: genai.Client, console_obj: Console):
+    def __init__(self, gemini_client: genai.Client, console_obj: console.Console):
         self.console = console_obj
         self.gemini_client = gemini_client
+        self.intents = discord.Intents.default()
+        self.intents.message_content = True
+        self.intents.guilds = True
+        self.intents.reactions = True
+        self.intents.members = True
+        self.discord_client = discord.Client(intents=self.intents)
         pass
 
     async def execute_order(self, interaction, request: str, client):
@@ -162,4 +171,19 @@ class DiscordAgent:
                     )
                 )
 
+    async def send_message(self, input, chat_id):
+        DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+        if DISCORD_TOKEN is None:
+            print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
+            return
 
+        @self.discord_client.event
+        async def on_ready():
+            self.console.log(f"Providence initialized at {datetime.datetime.now()}")
+            channel = self.discord_client.get_channel(int(chat_id))
+            if channel:
+                await channel.send(input)
+            else:
+                print(f"Channel with ID {chat_id} not found.")
+
+        await self.discord_client.start(DISCORD_TOKEN)

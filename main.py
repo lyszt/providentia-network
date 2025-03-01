@@ -42,25 +42,17 @@ from Data import build
 load_dotenv(dotenv_path=".env")
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 USER_CONFIG = "Config/preferences.json"
 
-if DISCORD_TOKEN is None:
-    print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
+
 
 gemini_client = genai.Client(api_key=GEMINI_TOKEN, http_options={'api_version': 'v1alpha'})
 
 app = Flask(__name__)
-intents = discord.Intents.default()
-intents.message_content = True
-intents.guilds = True
-intents.reactions = True
-intents.members = True
 
-global discord_client
-discord_client = discord.Client(intents=intents)
+
 
 console = Console(color_system="windows")
 
@@ -74,6 +66,15 @@ logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 logger.setFormatter(formatter)
 logging.getLogger('').addHandler(logger)
+
+_background_loop = None
+
+def get_background_loop():
+    global _background_loop
+    if _background_loop is None:
+        _background_loop = asyncio.new_event_loop()
+        threading.Thread(target=_background_loop.run_forever, daemon=True).start()
+    return _background_loop
 
 with open('index.html') as f:
     index_html = f.read()
@@ -160,15 +161,41 @@ def run_telegram():
         if len(count_of_time) > 1 and count_of_time[1].isnumeric():
             count_of_time = int(count_of_time[1])
             bot.send_message(message.chat.id, f"Counting {count_of_time} minutes")
-            time.sleep(count_of_time * 60)
+            for i in range(count_of_time * 60):
+                time.sleep(1)
+                if(i % 10) == 0:
+                    bot.send_message(message.chat.id, str(i))
             bot.reply_to(message, f"{count_of_time} minute(s) have already passed.")
 
         else:
-            bot.reply_to(message, "Provide a valid argument.")
+            bot.reply_to(message, "Provide a valid argument. FORMAT: /count [INTEGER]")
     # Premium commands
     @verified_handler(commands=['note','reminder'])
     def set_note(message):
         bot.reply_to(message, "Command in development.")
+
+    @verified_handler(commands=['send'])
+    def send(message):
+        arguments = message.text.split(' ')
+        if len(arguments) < 4:
+            bot.reply_to(message, "Provide a valid argument. FORMAT: /send [APP] [CHAT ID] [MESSAGE]")
+            return
+
+        if arguments[1].lower() == 'discord' and arguments[2].isnumeric():
+            chat_id = arguments[2]
+            sentence = " ".join(arguments[3:])
+            try:
+                # This one command schedules the Discord send_message coroutine to run
+                asyncio.run_coroutine_threadsafe(
+                    DiscordAgent(console_obj=console, gemini_client=gemini_client).send_message(input=sentence,
+                                                                                                chat_id=chat_id),
+                    get_background_loop()
+                )
+            except Exception as e:
+                bot.reply_to(message, f"Error: {str(e)}")
+        else:
+            bot.reply_to(message, "Provide a valid argument. FORMAT: /send [APP] [CHAT ID] [MESSAGE]")
+
     @verified_handler(commands=['weather','clima'])
     def send_weather(message):
 
@@ -187,6 +214,7 @@ def run_telegram():
     def interpret(message):
         response = asyncio.run(Language(gemini_client, console).generate_simple_response([preferred_language if message.from_user.id == 6320851817 else message.from_user.language_code,message.text]))
         bot.reply_to(message, response)
+
 
     bot.infinity_polling()
 
@@ -210,7 +238,6 @@ if __name__ == '__main__':
 
         mainApp.start()
         telegram.start()
-        # discordApp.start()
 
         mainApp.join()
     except Exception as err:
