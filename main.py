@@ -121,14 +121,23 @@ def run_telegram():
     console.log(f"Running telegram bot. At ID: {bot.bot_id}")
     commands = ["start","help","hello",'weather','clima','note','reminder']
 
-    def requires_verification(func):
-        @wraps(func)
-        def wrapper(message):
-            if Verification().verify_telegram(message.from_user.id):
-                return func(message)
-            else:
-                bot.reply_to(message, "Forgive me, but I can't respond to you.")
+    def verified_handler(**registration_kwargs):
+        def decorator(handler):
+            @wraps(handler)
+            def wrapper(message):
+                if not Verification().verify_telegram(message.from_user.id):
+                    return bot.reply_to(message, "Forgive me, but I can't respond to you.")
+                return handler(message)
+
+            bot.register_message_handler(wrapper, **registration_kwargs)
             return wrapper
+
+        return decorator
+
+    @bot.message_handler(commands=['self_manifest'])
+    def self_manifest(message):
+        console.log(f"Received self manifest: {message.from_user}")
+        message.reply_to(message,"Você foi identificado pelos meus sistemas.")
 
     @bot.message_handler(commands=['start','hello','help'])
     def send_welcome(message):
@@ -137,12 +146,10 @@ def run_telegram():
         whitelisted.\n
         COMMANDS: {commands}""")
 
-    @bot.message_handler(commands=['note','reminder'])
-    @requires_verification
+    @verified_handler(commands=['note','reminder'])
     def set_note(message):
         bot.reply_to(message, "Command in development.")
-    @bot.message_handler(commands=['weather','clima'])
-    @requires_verification
+    @verified_handler(commands=['weather','clima'])
     def send_weather(message):
 
             weather = asyncio.run(Weather().get())
@@ -156,8 +163,7 @@ def run_telegram():
             {weather}
             """))
             bot.reply_to(message, response)
-    @bot.message_handler(func=lambda msg: True)
-    @requires_verification
+    @verified_handler(func=lambda msg: True)
     def interpret(message):
         response = asyncio.run(Language(gemini_client, console).generate_simple_response(message.text))
         bot.reply_to(message, response)
