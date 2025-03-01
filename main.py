@@ -161,7 +161,7 @@ def run_telegram():
         if len(count_of_time) > 1 and count_of_time[1].isnumeric():
             count_of_time = int(count_of_time[1])
             bot.send_message(message.chat.id, f"Counting {count_of_time} minutes")
-            for i in range(count_of_time * 60):
+            for i in range(0, count_of_time * 60, -1):
                 time.sleep(1)
                 if(i % 10) == 0:
                     bot.send_message(message.chat.id, str(i))
