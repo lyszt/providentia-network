@@ -161,7 +161,7 @@ def run_telegram():
             count_of_time = int(count_of_time[1])
             bot.send_message(message.chat.id, f"Counting {count_of_time} minutes")
             time.sleep(count_of_time * 60)
-            bot.reply_to(message, f"{count_of_time} minutes have already passed.")
+            bot.reply_to(message, f"{count_of_time} minute(s) have already passed.")
 
         else:
             bot.reply_to(message, "Provide a valid argument.")
