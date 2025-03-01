@@ -44,6 +44,8 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
+USER_CONFIG = "Config/preferences.json"
+
 if DISCORD_TOKEN is None:
     print("DISCORD_TOKEN is not found. Make sure the .env file is in the right location.")
 
@@ -120,6 +122,10 @@ def run_telegram():
     bot = telebot.TeleBot(TELEGRAM_TOKEN)
     console.log(f"Running telegram bot. At ID: {bot.bot_id}")
     commands = ["start","help","hello",'weather','clima','note','reminder']
+    with open(USER_CONFIG) as f:
+        preferred_language = json.load(f)
+        preferred_language = preferred_language['preferred_language']
+
 
     def verified_handler(**registration_kwargs):
         def decorator(handler):
@@ -165,7 +171,7 @@ def run_telegram():
             bot.reply_to(message, response)
     @verified_handler(func=lambda msg: True)
     def interpret(message):
-        response = asyncio.run(Language(gemini_client, console).generate_simple_response(['fr-fr' if message.from_user.id == 6320851817 else message.from_user.language_code,message.text]))
+        response = asyncio.run(Language(gemini_client, console).generate_simple_response([preferred_language if message.from_user.id == 6320851817 else message.from_user.language_code,message.text]))
         bot.reply_to(message, response)
 
     bot.infinity_polling()
