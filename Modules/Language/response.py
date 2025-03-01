@@ -10,11 +10,11 @@ class Language:
         self.gemini_client = gemini_client
         pass
 
-    async def generate_simple_response(self, prompt):
+    async def generate_simple_response(self, prompt: list):
         try:
             self.console.log(f"Generating command for prompt: {prompt}")
 
-            system_prompt = f"{prompts.prompts['identity']} - USER PROMPT: {prompt}"
+            system_prompt = f"{prompts.prompts['identity']} - IMPORTANT: REPLY IN USER LANGUAGE {prompt[0]} USER PROMPT: {prompt[1]}"
             response = self.gemini_client.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=system_prompt,
