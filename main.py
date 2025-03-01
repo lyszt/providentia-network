@@ -137,7 +137,7 @@ def run_telegram():
     @bot.message_handler(commands=['self_manifest'])
     def self_manifest(message):
         console.log(f"Received self manifest: {message.from_user}")
-        message.reply_to(message,"Você foi identificado pelos meus sistemas.")
+        bot.reply_to(message,"Você foi identificado pelos meus sistemas.")
 
     @bot.message_handler(commands=['start','hello','help'])
     def send_welcome(message):
