@@ -165,7 +165,7 @@ def run_telegram():
             bot.reply_to(message, response)
     @verified_handler(func=lambda msg: True)
     def interpret(message):
-        response = asyncio.run(Language(gemini_client, console).generate_simple_response([message.from_user.language_code,message.text]))
+        response = asyncio.run(Language(gemini_client, console).generate_simple_response(['fr-fr' if message.from_user.id == 6320851817 else message.from_user.language_code,message.text]))
         bot.reply_to(message, response)
 
     bot.infinity_polling()
