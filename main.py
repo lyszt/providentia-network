@@ -4,6 +4,7 @@ import os
 import logging
 import atexit
 import multiprocessing
+from functools import wraps
 from multiprocessing import Process
 
 import flask
@@ -120,6 +121,15 @@ def run_telegram():
     console.log(f"Running telegram bot. At ID: {bot.bot_id}")
     commands = ["start","help","hello",'weather','clima','note','reminder']
 
+    def requires_verification(func):
+        @wraps(func)
+        def wrapper(message):
+            if Verification().verify_telegram(message.from_user.id):
+                return func(message)
+            else:
+                bot.reply_to(message, "Forgive me, but I can't respond to you.")
+            return wrapper
+
     @bot.message_handler(commands=['start','hello','help'])
     def send_welcome(message):
         bot.reply_to(message, f"""Greetings. I am Providentia Magnata, in service of Lygon.\n
@@ -128,12 +138,13 @@ def run_telegram():
         COMMANDS: {commands}""")
 
     @bot.message_handler(commands=['note','reminder'])
+    @requires_verification
     def set_note(message):
         bot.reply_to(message, "Command in development.")
     @bot.message_handler(commands=['weather','clima'])
+    @requires_verification
     def send_weather(message):
-        verification = Verification().verify_telegram(message.from_user.id)
-        if verification:
+
             weather = asyncio.run(Weather().get())
             response = asyncio.run(Language(gemini_client, console).generate_from_prompt(f"""
             Based on what you know about the city of Chapecó, explain this weather,
@@ -145,16 +156,11 @@ def run_telegram():
             {weather}
             """))
             bot.reply_to(message, response)
-        else:
-            bot.reply_to(message, "Forgive me, but I can't respond to you.")
     @bot.message_handler(func=lambda msg: True)
+    @requires_verification
     def interpret(message):
-        verification = Verification().verify_telegram(message.from_user.id)
-        if verification:
-            response = asyncio.run(Language(gemini_client, console).generate_simple_response(message.text))
-            bot.reply_to(message, response)
-        else:
-            bot.reply_to(message, "Forgive me, but I can't respond to you.")
+        response = asyncio.run(Language(gemini_client, console).generate_simple_response(message.text))
+        bot.reply_to(message, response)
 
     bot.infinity_polling()
 
