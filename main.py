@@ -30,6 +30,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from Data.build import DatabaseConstructor
+from Data.models import *
 from Modules.Configuration.configure import *
 from Modules.Executioner.discord import *
 from Modules.Executioner.ponto import bater_ponto
@@ -40,6 +41,7 @@ from Modules.Security.verify import Verification
 from Data import build
 
 load_dotenv(dotenv_path=".env")
+DB = SqliteDatabase("main.db")
 GEMINI_TOKEN = os.getenv('GEMINI_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -116,7 +118,6 @@ def initialize():
 """))
     try:
         Setup()
-        DatabaseConstructor(consol=console).build()
     except Exception as err:
         logging.error(err)
 
@@ -212,7 +213,12 @@ def run_telegram():
             bot.reply_to(message, response)
     @verified_handler(func=lambda msg: True)
     def interpret(message):
-        response = asyncio.run(Language(gemini_client, console).generate_simple_response([preferred_language if message.from_user.id == 6320851817 else message.from_user.language_code,message.text]))
+        previous_messages = TelegramMessages.select().where(TelegramMessages.user_id == int(message.from_user.id)).order_by(TelegramMessages.created_at.desc()).limit(20)
+        TelegramMessages.create(user_id = message.from_user.id, content = message.text)
+        previous_messages = [f"{message.from_user.first_name} says: {sentence.content}" for sentence in previous_messages]
+        console.log(previous_messages)
+        response = asyncio.run(Language(gemini_client, console).generate_simple_response([preferred_language if message.from_user.id == 6320851817 else message.from_user.language_code,
+        f"PREVIOUS MESSAGES, FULL CONVERSATION: {previous_messages} - USER MESSAGE: {message.text}"]))
         bot.reply_to(message, response)
 
 
@@ -226,6 +232,7 @@ def shutdown():
 
 
 if __name__ == '__main__':
+    DatabaseConstructor(consol=console).build()
     setup = multiprocessing.Process(target=initialize)
     mainApp = multiprocessing.Process(target=run_flask)
     telegram = multiprocessing.Process(target=run_telegram)
