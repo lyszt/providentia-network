@@ -215,7 +215,7 @@ def run_telegram():
     def interpret(message):
         previous_messages = TelegramMessages.select().where(TelegramMessages.user_id == int(message.from_user.id)).order_by(TelegramMessages.created_at.desc()).limit(20)
         TelegramMessages.create(user_id = message.from_user.id, content = message.text)
-        previous_messages = [f"{message.from_user.first_name} says: {sentence.content}" for sentence in previous_messages]
+        previous_messages = [f"{message.from_user.first_name} says: {sentence.content} at {sentence.created_at}" for sentence in previous_messages]
         response = asyncio.run(Language(gemini_client, console).generate_simple_response([preferred_language if message.from_user.id == 6320851817 else message.from_user.language_code,
         f"PREVIOUS MESSAGES, FULL CONVERSATION: {previous_messages} - USER MESSAGE: {message.text}"]))
         bot.reply_to(message, response)
