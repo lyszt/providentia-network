@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'reasoning',
-    'speech'
+    'speech',
+    "authentication"
 ]
 
 MIDDLEWARE = [

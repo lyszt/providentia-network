@@ -9,6 +9,7 @@ dependencies:
   - celery
   - redis-py
   - psycopg2
+  - cryptography
   - python-dotenv
   - google-genai
   - django
