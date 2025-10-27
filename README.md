@@ -56,11 +56,35 @@ Customizing the Python interpreter or settings
 
   make run DJANGO_SETTINGS_MODULE=myproject.settings.dev
 
-Notes
-- The Makefile aims to be small and unobtrusive — feel free to add project-specific targets (lint, format, coverage, docker, etc.).
-- If you rely on Conda, create the environment with the included `environment.yml`:
+Conda convenience: update target
 
-  conda env create -f environment.yml
-  conda activate <env-name>
+A single Makefile target, `update`, creates or updates a Conda environment from the repository's `environment.yml`.
+
+Usage
+
+- Create or update the default env (name taken from the Makefile, defaults to `providentia-network`):
+
+  make update
+
+- Specify a different environment name or environment file:
+
+  make update CONDA_ENV=my-env-name
+  make update ENV_FILE=envs/dev-environment.yml
+
+- Use a specific conda binary (for example micromamba or a conda in a custom location):
+
+  make update CONDA=~/.local/bin/micromamba
+
+What the target does
+
+- If the environment named by `CONDA_ENV` exists, the target runs `conda env update -n <name> -f <ENV_FILE> --prune` to update it.
+- If the environment does not exist, the target runs `conda env create -n <name> -f <ENV_FILE>` to create it.
+
+Notes
+
+- `conda` must be available on PATH (or set `CONDA` to a full path). If you're using `micromamba` or a different installer, set `CONDA` accordingly.
+- The Makefile uses `ENV_FILE` (default `environment.yml`) as the environment spec. Update that file to include any packages you need.
+
+That's it — run `make update` from the project root to ensure your Conda environment matches the repository spec.
 
 That's it — use `make help` to see the targets and examples above.
