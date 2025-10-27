@@ -8,6 +8,7 @@ dependencies:
   - pytorch
   - celery
   - redis-py
+  - psycopg2
   - python-dotenv
   - google-genai
   - django
