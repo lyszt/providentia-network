@@ -1,0 +1,15 @@
+name: providentia-network
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - transformers
+  - torchvision
+  - pytorch
+  - celery
+  - redis-py
+  - python-dotenv
+  - google-genai
+  - django
+  - djangorestframework
+prefix: /home/kaldwin/miniconda3/envs/providentia-network
