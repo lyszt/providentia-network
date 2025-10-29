@@ -16,7 +16,7 @@ class Command(BaseCommand):
         if AuthorizedApps.objects.filter(app_name=app_name).exists():
             raise CommandError(f'Application with name "{app_name}" already exists.')
 
-        api_key: str = os.urandom(16)
+        api_key = os.urandom(16)
         api_key = base64.urlsafe_b64encode(api_key).decode('utf-8')
         authorized_app = AuthorizedApps(app_name=app_name, api_key=api_key)
         authorized_app.save()

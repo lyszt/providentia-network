@@ -3,7 +3,7 @@ import os
 
 from django.shortcuts import render
 
-from .context_manager.ContextManager import ContextManager
+from .context_manager.ThinkingManager import ThinkingManager
 from .gemini import agent as gemini_agent
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -15,7 +15,7 @@ def simple_response(request):
     agent = gemini_agent.GeminiAgent()
 
     prompt = request.data.get('prompt', '')
-    instructions = ContextManager(message=prompt).generate_self_prompt()
+    instructions = ThinkingManager(message=prompt).generate_self_prompt()
     print(instructions)
 
 
