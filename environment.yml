@@ -1,4 +1,4 @@
-name: providentia-network
+name: PROVIDENCE
 channels:
   - conda-forge
   - defaults

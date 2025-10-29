@@ -1,6 +1,9 @@
+import json
 import os
 
 from django.shortcuts import render
+
+from .context_manager.ContextManager import ContextManager
 from .gemini import agent as gemini_agent
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -12,10 +15,15 @@ def simple_response(request):
     agent = gemini_agent.GeminiAgent()
 
     prompt = request.data.get('prompt', '')
+    instructions = ContextManager(message=prompt).generate_self_prompt()
+    print(instructions)
+
+
+
     model = "gemini-2.5-flash-lite"
     try:
         data = {
-            "response": agent.generate_response(model, prompt).text
+            "response": agent.generate_response(model, instructions).text
         }
     except Exception as e:
         data = {
