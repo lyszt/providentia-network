@@ -1,12 +1,16 @@
+import datetime
 import json
-import uuid  # --- (NEW) --- Import the UUID module
+import os
+import struct
+import subprocess
+import tempfile
+import uuid
+from pathlib import Path
+from typing import Any, Optional, Tuple
 
 from pydantic import BaseModel, Field
-import datetime
-from ..gemini.agent import GeminiAgent
-from typing import Any, Optional
 
-# --- ContextStruct (No changes needed) ---
+
 class ContextStruct(BaseModel):
     user_enquiry: str = Field(
         description="The raw, unaltered text query received from the user."
@@ -38,59 +42,218 @@ class ContextStruct(BaseModel):
     )
 
 
-# --- Updated ThinkingManager ---
+class ThinkingProcessError(RuntimeError):
+    """Raised when the C++ thinking process reports an error or fails."""
+
+
+CPP_DIR = Path(__file__).resolve().parent / "Kievan Rus"
+CPP_BINARY_NAME = "kievan_rus_thinker"
+if os.name == "nt":
+    CPP_BINARY_NAME += ".exe"
+CPP_BINARY = CPP_DIR / CPP_BINARY_NAME
+
+
+def _locate_env_file() -> Optional[Path]:
+    """Return the most likely .env file path, if it exists."""
+    explicit = os.environ.get("KIEVAN_RUS_ENV_PATH")
+    if explicit:
+        candidate = Path(explicit)
+        if candidate.exists():
+            return candidate
+    project_root = Path(__file__).resolve().parents[2]
+    default_env = project_root / ".env"
+    if default_env.exists():
+        return default_env
+    return None
+
+
+def _ensure_cpp_binary() -> Path:
+    """
+    Ensure the C++ assistant is compiled. If the binary is missing or older than
+    the source file, attempt to rebuild it. This assumes a system compiler and libcurl.
+    """
+    try:
+        sources = sorted(CPP_DIR.glob("*.cpp"))
+        headers = list(CPP_DIR.glob("*.hpp"))
+    except OSError as exc:
+        raise ThinkingProcessError(f"Unable to enumerate C++ sources: {exc}") from exc
+
+    if not sources:
+        raise ThinkingProcessError("No C++ source files found for the thinking engine.")
+
+    latest_timestamp = 0.0
+    for path in sources + headers:
+        try:
+            latest_timestamp = max(latest_timestamp, path.stat().st_mtime)
+        except OSError:
+            continue
+
+    if CPP_BINARY.exists():
+        try:
+            if CPP_BINARY.stat().st_mtime >= latest_timestamp:
+                return CPP_BINARY
+        except OSError:
+            pass
+
+    compile_command = [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        *[path.name for path in sources],
+        "-lcurl",
+        "-o",
+        str(CPP_BINARY),
+    ]
+
+    try:
+        subprocess.run(
+            compile_command,
+            check=True,
+            cwd=str(CPP_DIR),
+        )
+    except FileNotFoundError as exc:
+        raise ThinkingProcessError(
+            "C++ compiler (g++) not found. Install a C++17-compatible compiler to build the thinking engine."
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise ThinkingProcessError(
+            f"Failed to compile C++ thinking engine. Command: {' '.join(compile_command)}"
+        ) from exc
+
+    return CPP_BINARY
+
+
+def _read_binary_payload(path: Path) -> Tuple[dict[str, Any], str]:
+    """
+    The binary payload is encoded as:
+        status (1 byte)
+        context_length (4 bytes, big-endian)
+        context payload (context_length bytes, UTF-8)
+        summary_length (4 bytes, big-endian)
+        summary payload (summary_length bytes, UTF-8)
+    """
+    with path.open("rb") as stream:
+        status_raw = stream.read(1)
+        if len(status_raw) != 1:
+            raise ThinkingProcessError("Malformed output from C++ thinking engine (missing status byte).")
+
+        status = status_raw[0]
+
+        context_len_bytes = stream.read(4)
+        if len(context_len_bytes) != 4:
+            raise ThinkingProcessError("Malformed output from C++ thinking engine (missing context length).")
+        context_length = struct.unpack(">I", context_len_bytes)[0]
+        context_payload = stream.read(context_length)
+        if len(context_payload) != context_length:
+            raise ThinkingProcessError("Malformed output from C++ thinking engine (truncated context payload).")
+
+        summary_len_bytes = stream.read(4)
+        if len(summary_len_bytes) != 4:
+            raise ThinkingProcessError("Malformed output from C++ thinking engine (missing summary length).")
+        summary_length = struct.unpack(">I", summary_len_bytes)[0]
+        summary_payload = stream.read(summary_length)
+        if len(summary_payload) != summary_length:
+            raise ThinkingProcessError("Malformed output from C++ thinking engine (truncated summary payload).")
+
+    context_text = context_payload.decode("utf-8")
+    summary_text = summary_payload.decode("utf-8")
+
+    if status != 0:
+        raise ThinkingProcessError(context_text or "C++ thinking engine reported an error.")
+
+    try:
+        context_obj = json.loads(context_text)
+    except json.JSONDecodeError as exc:
+        raise ThinkingProcessError("Unable to parse JSON generated by C++ thinking engine.") from exc
+
+    if not isinstance(context_obj, dict):
+        raise ThinkingProcessError("Unexpected JSON structure from C++ thinking engine.")
+
+    return context_obj, summary_text
+
+
+def _invoke_cpp_thinker(message: str, iteration: int, summarized_thought: str) -> Tuple[dict[str, Any], str]:
+    binary_path = _ensure_cpp_binary()
+    env_path = _locate_env_file()
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        output_path = Path(tmp.name)
+
+    command = [
+        str(binary_path),
+        "--message",
+        message,
+        "--output",
+        str(output_path),
+        "--iteration",
+        str(iteration),
+    ]
+    if summarized_thought:
+        command.extend(["--summary", summarized_thought])
+    if env_path:
+        command.extend(["--env", str(env_path)])
+
+    try:
+        subprocess.run(command, check=True, cwd=str(CPP_DIR))
+        return _read_binary_payload(output_path)
+    except subprocess.CalledProcessError as exc:
+        raise ThinkingProcessError(
+            f"C++ thinking engine execution failed with exit code {exc.returncode}."
+        ) from exc
+    finally:
+        try:
+            output_path.unlink(missing_ok=True)
+        except AttributeError:
+            if output_path.exists():
+                output_path.unlink()
+
+
 class ThinkingManager:
-    def __init__(self, message, iteration: int = 0, previous: Optional["ThinkingManager"] = None,
-                 summarized_thought=""):
-        gemini_agent = GeminiAgent()
+    def __init__(
+        self,
+        message,
+        iteration: int = 0,
+        previous: Optional["ThinkingManager"] = None,
+        summarized_thought: str = "",
+    ):
         self.next = []
-        self.id = str(uuid.uuid4())  # --- (NEW) --- Assign a unique ID to this thought
+        self.id = str(uuid.uuid4())
 
         self.previous = previous
-
         if previous is not None:
             previous.next.append(self)
 
         self.message = message
-        self.iteration = iteration
-        self.iteration += 1
+        self.iteration = iteration + 1
         self.max_iterations = 15
-        analysis_prompt: str = f"""
-        You are an intelligent AI classifier. 
-        Your task is to analyze the user's message and detail
-        each field according to the message received. 
-        [ Filling instructions ]
-        steps_to_complete: Fill this field with what the agent will need to perform to make the user happy. 
-        user_enquiry: Describe the user request in detail. 
-        needs_command: Does the user require a command in the command list? [Currently there is no command list, so keep it false. ]
-        [LAST THOUGHT]
-        {summarized_thought}
-        [ USER MESSAGE ] 
-        {self.message}
-
-        """
 
         try:
-            response = gemini_agent.client.models.generate_content(
-                model="gemini-2.5-flash-lite",
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": ContextStruct,
-                },
-                contents=analysis_prompt
+            raw_context, summarize_thought = _invoke_cpp_thinker(
+                message=message,
+                iteration=self.iteration,
+                summarized_thought=summarized_thought,
             )
-
-            command_obj = ContextStruct.model_validate_json(response.text)
-            self.context = command_obj.model_dump()
-
-            if not self.context["is_done_thinking"] and self.iteration <= self.max_iterations:
-                summarize_thought = GeminiAgent().generate_response("gemini-2.5-flash-lite", "Summarize "
-                                                                                             f"the thought process in first person: {self.context}")
-                ThinkingManager(previous=self, message=message, summarized_thought=summarize_thought)
-
-        except (json.JSONDecodeError, Exception) as e:
-            print(f"Error decoding command from LLM: {e}")
+        except ThinkingProcessError as exc:
+            print(f"Error running C++ thinking engine: {exc}")
             self.context = None
+            return
+
+        try:
+            command_obj = ContextStruct.model_validate(raw_context)
+        except Exception as exc:
+            print(f"Validation error parsing context: {exc}")
+            self.context = None
+            return
+
+        self.context = command_obj.model_dump()
+
+        if not self.context.get("is_done_thinking", False) and self.iteration <= self.max_iterations:
+            ThinkingManager(
+                message=message,
+                iteration=self.iteration,
+                previous=self,
+                summarized_thought=summarize_thought,
+            )
 
     def build_thought_tree_prompt(self) -> str:
         """
@@ -115,13 +278,13 @@ class ThinkingManager:
             return
 
         indent = "  " * depth
-        plan = node.context.get('steps_for_completion', 'No plan generated.')
-        regrets = node.context.get('regrets_choice', False)
+        plan = node.context.get("steps_for_completion", "No plan generated.")
+        regrets = node.context.get("regrets_choice", False)
 
         prefix = ""
         if regrets:
             prefix = "[REGRETTED] "
-        elif node.context.get('is_done_thinking', False):
+        elif node.context.get("is_done_thinking", False):
             prefix = "[FINAL] "
 
         output_lines.append(f"{indent}{prefix}Thought (ID: {node.id}, Depth: {depth}): {plan}")

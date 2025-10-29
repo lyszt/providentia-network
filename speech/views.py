@@ -15,9 +15,11 @@ def simple_response(request):
     agent = gemini_agent.GeminiAgent()
 
     prompt = request.data.get('prompt', '')
-    instructions = ThinkingManager(message=prompt).generate_self_prompt()
+    instructions = f"""
+    Answer directly. You are in a chat environment.
+    {ThinkingManager(message=prompt).generate_self_prompt()}
+    """
     print(instructions)
-
 
 
     model = "gemini-2.5-flash-lite"
