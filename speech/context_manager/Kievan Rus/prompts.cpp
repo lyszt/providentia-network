@@ -35,10 +35,17 @@ std::string buildAnalysisPrompt(const Arguments &args) {
         << "  \"client_platform\": string,\n"
         << "  \"category\": string,\n"
         << "  \"steps_for_completion\": string,\n"
+        << "  \"possible_setbacks\": string,\n"
+        << "  \"probability_of_success\": number,\n"
+        << "  \"potential_score\": number,\n"
         << "  \"date_of_request\": string (ISO 8601),\n"
         << "  \"is_done_thinking\": boolean,\n"
         << "  \"regrets_choice\": boolean\n"
         << "}\n"
+        << "\"possible_setbacks\" must concisely list the primary risks, trade-offs, or downsides of the plan.\n"
+        << "\"probability_of_success\" must be a float between 0.0 and 1.0 describing the likelihood this branch succeeds.\n"
+        << "\"potential_score\" must be a float increment (positive or negative) to add to the cumulative potential score for the overall search.\n"
+        << "Ensure at least two distinct branch possibilities are explored across the wider reasoning process.\n"
         << "Use the following context for iteration " << args.iteration << ":\n";
 
     if (!args.summarizedThought.empty()) {
@@ -46,6 +53,12 @@ std::string buildAnalysisPrompt(const Arguments &args) {
     } else {
         oss << "[LAST THOUGHT]\nNone\n";
     }
+    if (!args.branchLabel.empty()) {
+        oss << "[BRANCH LABEL]\n" << args.branchLabel << "\n";
+    } else {
+        oss << "[BRANCH LABEL]\nPrimary\n";
+    }
+    oss << "Focus all analysis on the branch identified in [BRANCH LABEL] while keeping sibling branches distinct.\n";
     oss << "[USER MESSAGE]\n" << args.message << "\n"
         << "Ensure the response is valid JSON and nothing else.";
     return oss.str();
@@ -105,4 +118,3 @@ std::string buildSummaryPayload(const std::string &prompt) {
 }
 
 }  // namespace kievan::prompts
-

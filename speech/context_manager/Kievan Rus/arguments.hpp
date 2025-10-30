@@ -10,6 +10,7 @@ namespace kievan {
 struct Arguments {
     std::string message;
     std::string summarizedThought;
+    std::string branchLabel;
     std::string outputPath;
     std::string envPath;
     std::string model = "gemini-2.5-flash-lite";
@@ -23,4 +24,3 @@ struct Arguments {
 Arguments parseArguments(int argc, char *argv[]);
 
 }  // namespace kievan
-

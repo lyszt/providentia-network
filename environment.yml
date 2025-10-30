@@ -8,6 +8,7 @@ dependencies:
   - torchvision
   - pytorch
   - celery
+  - matplotlib
   - redis-py
   - psycopg2
   - cryptography

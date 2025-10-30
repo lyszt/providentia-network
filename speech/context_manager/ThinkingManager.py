@@ -5,10 +5,14 @@ import struct
 import subprocess
 import tempfile
 import uuid
+import textwrap
 from pathlib import Path
 from typing import Any, Optional, Tuple
+import matplotlib
 
 from pydantic import BaseModel, Field
+
+from plotting.graphing import ThoughtNode, render_thought_graph
 
 
 class ContextStruct(BaseModel):
@@ -29,6 +33,18 @@ class ContextStruct(BaseModel):
     )
     steps_for_completion: str = Field(
         description="The high-level plan or steps generated for the AI agent to follow."
+    )
+    possible_setbacks: str = Field(
+        default="",
+        description="Enumerate the risks, trade-offs, or downsides for the current plan.",
+    )
+    probability_of_success: float = Field(
+        default=0.0,
+        description="Likelihood (0.0-1.0) that this branch succeeds.",
+    )
+    potential_score: float = Field(
+        default=0.0,
+        description="Incremental potential score contributed by this branch.",
     )
     date_of_request: datetime.datetime = Field(
         default_factory=datetime.datetime.now,
@@ -172,7 +188,12 @@ def _read_binary_payload(path: Path) -> Tuple[dict[str, Any], str]:
     return context_obj, summary_text
 
 
-def _invoke_cpp_thinker(message: str, iteration: int, summarized_thought: str) -> Tuple[dict[str, Any], str]:
+def _invoke_cpp_thinker(
+    message: str,
+    iteration: int,
+    summarized_thought: str,
+    branch_label: str,
+) -> Tuple[dict[str, Any], str]:
     binary_path = _ensure_cpp_binary()
     env_path = _locate_env_file()
 
@@ -190,6 +211,8 @@ def _invoke_cpp_thinker(message: str, iteration: int, summarized_thought: str) -
     ]
     if summarized_thought:
         command.extend(["--summary", summarized_thought])
+    if branch_label:
+        command.extend(["--branch", branch_label])
     if env_path:
         command.extend(["--env", str(env_path)])
 
@@ -215,9 +238,18 @@ class ThinkingManager:
         iteration: int = 0,
         previous: Optional["ThinkingManager"] = None,
         summarized_thought: str = "",
+        branch_label: str = "Primary",
     ):
         self.next = []
         self.id = str(uuid.uuid4())
+        self.graph_path: Optional[Path] = None
+        self.branch_label = branch_label
+        self.summary_text = summarized_thought
+        self.probability_of_success: float = 0.0
+        self.potential_increment: float = 0.0
+        self.cumulative_potential: float = (
+            previous.cumulative_potential if previous is not None else 0.0
+        )
 
         self.previous = previous
         if previous is not None:
@@ -225,13 +257,14 @@ class ThinkingManager:
 
         self.message = message
         self.iteration = iteration + 1
-        self.max_iterations = 15
+        self.max_iterations = 8
 
         try:
             raw_context, summarize_thought = _invoke_cpp_thinker(
                 message=message,
                 iteration=self.iteration,
                 summarized_thought=summarized_thought,
+                branch_label=self.branch_label,
             )
         except ThinkingProcessError as exc:
             print(f"Error running C++ thinking engine: {exc}")
@@ -246,14 +279,200 @@ class ThinkingManager:
             return
 
         self.context = command_obj.model_dump()
+        self.summary_text = summarize_thought or self.summary_text
 
-        if not self.context.get("is_done_thinking", False) and self.iteration <= self.max_iterations:
+        self.probability_of_success = self._to_float(
+            self.context.get("probability_of_success"),
+            default=0.0,
+            clamp=(0.0, 1.0),
+        )
+        self.potential_increment = self._to_float(
+            self.context.get("potential_score"),
+            default=0.0,
+        )
+        self.cumulative_potential += self.potential_increment
+
+        self.context["probability_of_success"] = self.probability_of_success
+        self.context["potential_increment"] = self.potential_increment
+        self.context["potential_score"] = self.potential_increment
+        self.context["cumulative_potential"] = self.cumulative_potential
+        self.context["branch_label"] = self.branch_label
+
+        self._log(
+            f"Evaluated branch '{self.branch_label}' (ID: {self.id}) | "
+            f"Prob: {self.probability_of_success:.2f} | "
+            f"ΔPotential: {self.potential_increment:+.2f} | "
+            f"Cumulative: {self.cumulative_potential:.2f}"
+        )
+
+        should_spawn = False
+        if self.previous is None and self.iteration <= self.max_iterations:
+            should_spawn = True
+        elif (
+            not self.context.get("is_done_thinking", False)
+            and self.iteration <= self.max_iterations
+        ):
+            should_spawn = True
+
+        if should_spawn:
+            self._spawn_branch_children(
+                message=message,
+                base_summary=self.summary_text,
+            )
+
+    @staticmethod
+    def _log(message: str) -> None:
+        print(f"[ThinkingManager] {message}")
+
+    @staticmethod
+    def _to_float(value: Any, default: float = 0.0, clamp: Optional[Tuple[float, float]] = None) -> float:
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            return default
+
+        if clamp is not None:
+            low, high = clamp
+            if low is not None:
+                result = max(low, result)
+            if high is not None:
+                result = min(high, result)
+        return result
+
+    @staticmethod
+    def _wrap_label(text: str, width: int = 42) -> str:
+        if not text:
+            return "No content"
+        return textwrap.fill(" ".join(text.split()), width=width)
+
+    def _spawn_branch_children(self, message: str, base_summary: str) -> None:
+        if self.iteration >= self.max_iterations:
+            self._log("Maximum iteration reached; skipping branch expansion.")
+            return
+
+        if getattr(self, "_branches_created", False):
+            self._log("Branches already created for this node; skipping additional expansion.")
+            return
+
+        branch_suffixes = ["A", "B"]
+        for index, suffix in enumerate(branch_suffixes, start=1):
+            child_label = f"{self.branch_label}-{suffix}".strip("-")
+            augmented_summary = (base_summary or "").strip()
+            branch_summary = (
+                f"{augmented_summary}\nBranch {child_label}: explore an alternate path distinct from other branches. "
+                f"Parent cumulative potential: {self.cumulative_potential:.2f}. "
+                f"Focus on a unique strategy with a quantified probability of success."
+            ).strip()
+
+            self._log(
+                f"Spawning branch '{child_label}' from parent '{self.branch_label}' (ID: {self.id})."
+            )
+
             ThinkingManager(
                 message=message,
                 iteration=self.iteration,
                 previous=self,
-                summarized_thought=summarize_thought,
+                summarized_thought=branch_summary,
+                branch_label=child_label,
             )
+
+        self._branches_created = True
+
+    def _collect_graph_data(self):
+        self._log("Collecting thought graph data for rendering.")
+        root = self
+        while root.previous is not None:
+            root = root.previous
+
+        nodes: list[ThoughtNode] = []
+        edges: list[tuple[str, str]] = []
+        stack: list[tuple["ThinkingManager", int, Optional[str]]] = [(root, 0, None)]
+        visited: set[str] = set()
+
+        while stack:
+            node, depth, parent_id = stack.pop()
+            if node.id in visited or node.context is None:
+                self._log(f"Skipping node {node.id} (visited or missing context).")
+                continue
+            visited.add(node.id)
+
+            plan_text = node.context.get("steps_for_completion", "No plan generated.")
+            setbacks = node.context.get("possible_setbacks", "")
+            probability = self._to_float(
+                node.context.get("probability_of_success"),
+                default=0.0,
+                clamp=(0.0, 1.0),
+            )
+            potential_increment = self._to_float(
+                node.context.get("potential_increment", node.context.get("potential_score")),
+                default=0.0,
+            )
+            cumulative_potential = self._to_float(
+                node.context.get("cumulative_potential"),
+                default=getattr(node, "cumulative_potential", 0.0),
+            )
+            branch_label = node.context.get("branch_label", getattr(node, "branch_label", "Branch"))
+
+            detail_parts = [plan_text]
+            if setbacks:
+                detail_parts.append(f"Setbacks: {setbacks}")
+            combined_label = "\n".join(detail_parts)
+
+            nodes.append(
+                ThoughtNode(
+                    id=node.id,
+                    depth=depth,
+                    label=self._wrap_label(combined_label),
+                    branch_label=branch_label,
+                    probability=probability,
+                    potential_increment=potential_increment,
+                    cumulative_potential=cumulative_potential,
+                    is_final=bool(node.context.get("is_done_thinking")),
+                    regrets=bool(node.context.get("regrets_choice")),
+                )
+            )
+
+            if parent_id is not None:
+                edges.append((parent_id, node.id))
+                self._log(f"Registered edge {parent_id} -> {node.id}.")
+
+            for child in reversed(node.next):
+                stack.append((child, depth + 1, node.id))
+
+        self._log(f"Collected {len(nodes)} nodes and {len(edges)} edges for graph.")
+        return nodes, edges, root
+
+    def _render_thought_graph(self) -> Optional[Path]:
+        try:
+            nodes, edges, root = self._collect_graph_data()
+        except Exception as exc:
+            self._log(f"Unable to collect thought graph data: {exc}")
+            return None
+
+        if not nodes:
+            self._log("No nodes available for thought graph rendering.")
+            return None
+
+        if getattr(root, "_graph_cached_path", None):
+            self._log("Using cached thought graph path.")
+            return root._graph_cached_path  # type: ignore[attr-defined]
+
+        graphs_dir = Path(__file__).resolve().parent / "graphs"
+        output_path = graphs_dir / f"thought_graph_{root.id}.png"
+
+        try:
+            self._log(f"Rendering thought graph to {output_path}.")
+            render_thought_graph(nodes, edges, output_path)
+            self._log(f"Thought graph successfully saved to {output_path}.")
+        except RuntimeError as exc:
+            self._log(f"Unable to render thought graph: {exc}")
+            return None
+        except Exception as exc:
+            self._log(f"Unexpected error rendering thought graph: {exc}")
+            return None
+
+        setattr(root, "_graph_cached_path", output_path)
+        return output_path
 
     def build_thought_tree_prompt(self) -> str:
         """
@@ -279,7 +498,22 @@ class ThinkingManager:
 
         indent = "  " * depth
         plan = node.context.get("steps_for_completion", "No plan generated.")
+        setbacks = node.context.get("possible_setbacks", "")
         regrets = node.context.get("regrets_choice", False)
+        branch_label = node.context.get("branch_label", getattr(node, "branch_label", "Branch"))
+        probability = self._to_float(
+            node.context.get("probability_of_success"),
+            default=0.0,
+            clamp=(0.0, 1.0),
+        )
+        potential_increment = self._to_float(
+            node.context.get("potential_increment", node.context.get("potential_score")),
+            default=0.0,
+        )
+        cumulative_potential = self._to_float(
+            node.context.get("cumulative_potential"),
+            default=getattr(node, "cumulative_potential", 0.0),
+        )
 
         prefix = ""
         if regrets:
@@ -287,7 +521,15 @@ class ThinkingManager:
         elif node.context.get("is_done_thinking", False):
             prefix = "[FINAL] "
 
-        output_lines.append(f"{indent}{prefix}Thought (ID: {node.id}, Depth: {depth}): {plan}")
+        detail_parts = [f"Branch: {branch_label}", f"Plan: {plan}"]
+        if setbacks:
+            detail_parts.append(f"Setbacks: {setbacks}")
+        detail_parts.append(f"Prob={probability:.2f}")
+        detail_parts.append(f"ΔPotential={potential_increment:+.2f}")
+        detail_parts.append(f"Cumulative={cumulative_potential:.2f}")
+        detail = " | ".join(detail_parts)
+
+        output_lines.append(f"{indent}{prefix}Thought (ID: {node.id}, Depth: {depth}): {detail}")
 
         for child_node in node.next:
             self._build_tree_recursive(child_node, depth + 1, output_lines)
@@ -299,6 +541,11 @@ class ThinkingManager:
         while root.previous is not None:
             root = root.previous
         original_user_message = root.message
+
+        graph_path = self._render_thought_graph()
+        if graph_path is not None:
+            self.graph_path = graph_path
+            self._log(f"Graph path stored on manager: {graph_path}")
 
         return f"""
         [ ORIGINAL USER MESSAGE ]

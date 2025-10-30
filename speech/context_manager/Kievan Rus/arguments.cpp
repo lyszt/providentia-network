@@ -12,8 +12,8 @@ namespace {
 
 void printUsage() {
     std::cout << "Usage: thinker --message <text> --output <file> "
-                 "[--summary <text>] [--env <path>] [--model <model-name>] "
-                 "[--iteration <n>]\n";
+                 "[--summary <text>] [--branch <label>] [--env <path>] "
+                 "[--model <model-name>] [--iteration <n>]\n";
 }
 
 }  // namespace
@@ -27,6 +27,8 @@ Arguments parseArguments(int argc, char *argv[]) {
             args.message = argv[++i];
         } else if (current == "--summary" && i + 1 < argc) {
             args.summarizedThought = argv[++i];
+        } else if (current == "--branch" && i + 1 < argc) {
+            args.branchLabel = argv[++i];
         } else if (current == "--output" && i + 1 < argc) {
             args.outputPath = argv[++i];
         } else if (current == "--env" && i + 1 < argc) {
@@ -56,4 +58,3 @@ Arguments parseArguments(int argc, char *argv[]) {
 }
 
 }  // namespace kievan
-
