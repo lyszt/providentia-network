@@ -1,7 +1,16 @@
 # Providentia Network — Backend
+<img width="1083" height="550" alt="image" src="https://github.com/user-attachments/assets/a94eb495-089a-4992-bd30-b6966da33cfc" />
 
 Providentia Network is a Django-based backend that orchestrates multi-branch reasoning with Google's Gemini models, a native C++ co-processor, and optional visualisations of the thought graph. This document summarises the current architecture and provides the commands needed to build and run the system locally.
 
+https://www.promptingguide.ai/techniques/tot
+```
+ Yao et el. (2023) and Long (2023)
+
+recently proposed Tree of Thoughts (ToT), a framework that generalizes over chain-of-thought prompting and encourages exploration over thoughts that serve as intermediate steps for general problem solving with language models.
+
+ToT maintains a tree of thoughts, where thoughts represent coherent language sequences that serve as intermediate steps toward solving a problem. This approach enables an LM to self-evaluate the progress through intermediate thoughts made towards solving a problem through a deliberate reasoning process. The LM's ability to generate and evaluate thoughts is then combined with search algorithms (e.g., breadth-first search and depth-first search) to enable systematic exploration of thoughts with lookahead and backtracking.
+```
 ---
 
 ## System Architecture
