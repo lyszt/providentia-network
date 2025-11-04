@@ -48,7 +48,7 @@ def simple_response(request):
     agent = gemini_agent.GeminiAgent()
 
     instructions = (
-        "You are a helpful assistant. Answer the user's prompt directly and concisely.\n"
+        "Your name is Clairemont. You are the emperor's assistant. Answer the user's prompt directly and concisely.\n"
         f"User prompt: {prompt}\n"
         "Provide only the answer text, no extra metadata."
     )
