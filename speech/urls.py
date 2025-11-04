@@ -4,5 +4,6 @@ from . import views
 app_name = 'speech'
 
 urlpatterns = [
-    path('simple_response', views.simple_response, name='simple_response'),
+    path('deep-think/', views.deep_think, name='deep_think'),
+    path('simple-response/', views.simple_response, name='simple_response'),
 ]

@@ -354,6 +354,25 @@ class ThinkingManager:
             self._log("Branches already created for this node; skipping additional expansion.")
             return
 
+        # Only spawn branches for the root node (Primary) and first-level branches
+        # Count depth by checking how many branch segments exist
+        # Primary → 0 levels deep (create branches)
+        # A, B (or Primary-A, Primary-B) → 1 level deep (create branches)
+        # A-A, A-B, B-A, B-B → 2 levels deep (stop here)
+
+        # Calculate branch depth based on label structure
+        if self.branch_label == "Primary":
+            branch_depth = 0
+        else:
+            # Remove "Primary-" prefix if it exists for counting
+            label_to_check = self.branch_label.replace("Primary-", "")
+            # Count number of segments separated by hyphens
+            branch_depth = len(label_to_check.split("-"))
+
+        if branch_depth >= 2:
+            self._log(f"Branch '{self.branch_label}' is at depth {branch_depth}; stopping expansion.")
+            return
+
         branch_suffixes = ["A", "B"]
         for index, suffix in enumerate(branch_suffixes, start=1):
             child_label = f"{self.branch_label}-{suffix}".strip("-")
